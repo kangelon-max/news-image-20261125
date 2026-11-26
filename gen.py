@@ -127,7 +127,8 @@ def masthead(d):
 
 
 # ---------------------------------------------------------------- hero scene
-def skyline(d, rng, baseline, color, hmin, hmax, windows=None):
+def skyline(d, rng, baseline, color, hmin, hmax, windows=None,
+            win_p=0.13, win_col=(238, 203, 110)):
     x = MX - 10
     while x < W - MX + 10:
         bw = rng.randint(58, 128)
@@ -141,9 +142,9 @@ def skyline(d, rng, baseline, color, hmin, hmax, windows=None):
             while wy < baseline - 16:
                 wx = x + 10
                 while wx < x + bw - 12:
-                    if rng.random() < 0.13:
+                    if rng.random() < win_p:
                         d.rectangle([wx, wy, wx + 8, wy + 11],
-                                    fill=(238, 203, 110))
+                                    fill=win_col)
                     wx += 20
                 wy += 24
         x += bw + rng.randint(4, 18)
@@ -227,6 +228,13 @@ def fracture(d, peak):
     d.ellipse([px_ - 9, py_ - 9, px_ + 9, py_ + 9], fill=bright)
 
 
+def candle_shard(d, cx, cy, hgt, col):
+    """One small candlestick tumbling under the break point."""
+    d.line([cx, cy - hgt // 2 - 8, cx, cy + hgt // 2 + 8], fill=col,
+           width=3)
+    d.rectangle([cx - 6, cy - hgt // 2, cx + 6, cy + hgt // 2], fill=col)
+
+
 def hero_scene(d, img):
     top, bot = 236, 480
     # night-sky gradient
@@ -236,9 +244,17 @@ def hero_scene(d, img):
         col = tuple(int(c_top[k] + (c_bot[k] - c_top[k]) * t)
                     for k in range(3))
         d.line([MX, top + i, W - MX, top + i], fill=col)
-    # soft glows (gold at the peak, red where the line crashes)
+    # the chart line's path (the glow below is laid along it)
+    rise = [(96, 444), (330, 428), (560, 384), (800, 330), (980, 294),
+            (1138, 287)]
+    fall = [(1168, 274), (1300, 318), (1470, 372), (1650, 430),
+            (1830, 462), (1976, 478)]
+    # soft glows: a halo running the length of the gold rally line and
+    # of the red plunge, plus pools of light at the peak and the crash
     glow = Image.new("RGBA", (W, W), (0, 0, 0, 0))
     gd = ImageDraw.Draw(glow)
+    gd.line(rise, fill=(240, 190, 80, 46), width=54, joint="curve")
+    gd.line(fall, fill=(205, 62, 40, 42), width=48, joint="curve")
     gd.ellipse([1002, 196, 1302, 386], fill=(240, 190, 80, 46))
     gd.ellipse([1620, 360, 2006, 540], fill=(205, 62, 40, 58))
     glow = glow.filter(ImageFilter.GaussianBlur(26))
@@ -246,24 +262,22 @@ def hero_scene(d, img):
     d = ImageDraw.Draw(img)  # fresh draw core after compositing
     # stars
     rng = random.Random(20261125)
-    for _ in range(150):
+    for _ in range(240):
         sx = rng.randint(MX + 8, W - MX - 8)
-        sy = rng.randint(top + 8, top + 140)
+        sy = rng.randint(top + 8, top + 150)
         r = rng.choice((1, 2, 2, 3))
         shade = rng.choice(((210, 218, 232), (238, 226, 190),
                             (170, 184, 205)))
         d.ellipse([sx - r, sy - r, sx + r, sy + r], fill=shade)
-    # skyline, two layers
-    skyline(d, random.Random(41), bot, (24, 41, 64), 40, 88)
+    # skyline, two layers: a dim distant row with sparse lit windows,
+    # then the near-black row with brighter windows in front of it
+    skyline(d, random.Random(41), bot, (17, 30, 50), 40, 88,
+            windows=True, win_p=0.07, win_col=(190, 164, 92))
     skyline(d, random.Random(97), bot, (7, 12, 22), 62, 126,
-            windows=True)
+            windows=True, win_p=0.17)
     candlesticks(d)
     # the chart line: gold rocket, red plunge — the two ends stop short
     # of the peak, leaving a visible gap for the fracture
-    rise = [(96, 444), (330, 428), (560, 384), (800, 330), (980, 294),
-            (1138, 287)]
-    fall = [(1168, 274), (1300, 318), (1470, 372), (1650, 430),
-            (1830, 462), (1976, 478)]
     for pts, halo, mid, core in (
             (rise, (94, 72, 20), (172, 134, 42), (243, 203, 84)),
             (fall, (96, 24, 18), (156, 42, 30), (235, 88, 62))):
@@ -277,6 +291,16 @@ def hero_scene(d, img):
     arrow_shard(d, 1345, 380, 74, 42, 16)
     arrow_shard(d, 1545, 442, 64, 8, 15)
     arrow_shard(d, 1730, 458, 52, 55, 13)
+    # red candle shards and falling ticks shaken loose by the break,
+    # tumbling away beneath the plunge path
+    for cx, cy, hgt, col in ((1246, 322, 26, RED), (1318, 350, 18, RED_L),
+                             (1408, 384, 28, RED), (1496, 408, 18, RED_L),
+                             (1592, 428, 22, RED), (1792, 466, 16, RED_L)):
+        candle_shard(d, cx, cy, hgt, col)
+    for tx, ty, ln in ((1280, 306, 16), (1450, 366, 13), (1552, 402, 15),
+                       (1680, 440, 12), (1852, 452, 14)):
+        d.line([tx, ty, tx + ln, ty + ln + 5], fill=(222, 84, 52),
+               width=4)
     # embers and falling fragments under the plunge
     rng = random.Random(7)
     for _ in range(46):
@@ -320,6 +344,15 @@ def hero_strip(d):
 
 
 # ---------------------------------------------------------------- motifs
+def waves(d, x, y, w, col, step=30, amp=6):
+    """A row of scalloped wave crests."""
+    n = max(int(w // step), 1)
+    for i in range(n):
+        wx = x + i * step
+        d.arc([wx, y - amp, wx + step, y + amp], 180, 360, fill=col,
+              width=3)
+
+
 def motif_hormuz(d, x, y, w, h):
     sea_y = y + h - 30
     d.rectangle([x, sea_y, x + w, y + h], fill=SEA)
@@ -339,35 +372,81 @@ def motif_hormuz(d, x, y, w, h):
     d.rectangle([cx + 40, sea_y - 30, cx + 62, sea_y - 12],
                 fill=(224, 220, 206))
     d.rectangle([cx + 46, sea_y - 40, cx + 56, sea_y - 30], fill=RED)
-    # flame tongues rising off the midship, smoke trailing up-right
+    # flame tongues rising off the midship
     for dx, fh, col in ((-16, 44, RED), (-2, 58, (232, 126, 34)),
                         (12, 38, (244, 180, 60))):
         bx = cx + dx
         d.polygon([(bx - 11, sea_y - 10), (bx + 3, sea_y - 10 - fh),
                    (bx + 12, sea_y - 10)], fill=col)
     d.ellipse([cx - 26, sea_y - 20, cx + 26, sea_y - 6], fill=RED)
-    for sx, sy, r in ((cx + 26, sea_y - 62, 8), (cx + 44, sea_y - 72, 9),
-                      (cx + 62, sea_y - 78, 7)):
-        d.ellipse([sx - r, sy - r, sx + r, sy + r], fill=(150, 148, 142))
+    # a layered smoke plume boiling up and trailing off to the right:
+    # dark puffs behind, paler cores in front
+    for sx, sy, r in ((cx + 20, sea_y - 54, 8), (cx + 38, sea_y - 63, 11),
+                      (cx + 60, sea_y - 70, 14), (cx + 86, sea_y - 75, 17),
+                      (cx + 114, sea_y - 78, 19)):
+        d.ellipse([sx - r, sy - r, sx + r, sy + r], fill=(122, 120, 114))
+    for sx, sy, r in ((cx + 36, sea_y - 60, 7), (cx + 58, sea_y - 67, 9),
+                      (cx + 84, sea_y - 72, 11), (cx + 112, sea_y - 75, 12)):
+        d.ellipse([sx - r, sy - r, sx + r, sy + r], fill=(168, 166, 158))
+    # wake at the stern and wave crests across the strait
+    d.line([cx - 84, sea_y + 12, cx - 116, sea_y + 16], fill=(168, 196, 208),
+           width=3)
+    d.line([cx - 80, sea_y + 18, cx - 104, sea_y + 22], fill=(168, 196, 208),
+           width=3)
+    waves(d, x + 8, sea_y + 15, w - 16, (110, 150, 175))
+    waves(d, x + 22, sea_y + 24, w - 44, (84, 124, 152))
 
 
 def motif_cartagena(d, x, y, w, h):
     bx, by, bw, bh = x + 18, y + 8, w - 36, h - 26
     d.rectangle([bx, by, bx + bw, by + bh], fill=(219, 209, 182))
     d.rectangle([bx, by, bx + bw, by + 22], fill=RED)
+    d.line([bx, by + 22, bx + bw, by + 22], fill=GOLD, width=3)
     for i in range(9):  # awning stripes
         ax = bx + 8 + i * (bw - 16) // 9
         col = RED if i % 2 == 0 else (240, 238, 228)
         d.polygon([(ax, by + 22), (ax + (bw - 16) // 9, by + 22),
                    (ax + (bw - 16) // 9 - 4, by + 38), (ax + 4, by + 38)],
                   fill=col)
-    d.rectangle([bx + bw // 2 - 17, by + bh - 44, bx + bw // 2 + 17,
-                 by + bh], fill=(52, 46, 40))
+    # double glass entrance doors with a centre mullion and handles
+    dx0, dx1 = bx + bw // 2 - 19, bx + bw // 2 + 19
+    d.rectangle([dx0, by + bh - 46, dx1, by + bh], fill=(70, 92, 114))
+    d.rectangle([dx0, by + bh - 46, dx1, by + bh], outline=(52, 46, 40),
+                width=3)
+    d.line([bx + bw // 2, by + bh - 46, bx + bw // 2, by + bh],
+           fill=(52, 46, 40), width=3)
+    d.line([bx + bw // 2 - 6, by + bh - 24, bx + bw // 2 - 6, by + bh - 12],
+           fill=(224, 220, 206), width=3)
+    d.line([bx + bw // 2 + 6, by + bh - 24, bx + bw // 2 + 6, by + bh - 12],
+           fill=(224, 220, 206), width=3)
+    d.line([dx0 + 4, by + bh - 42, dx0 + 14, by + bh - 20],
+           fill=(150, 172, 192), width=3)
+    # display windows with shelf lines and goods silhouettes inside
     for i in range(3):
-        wx = bx + 18 + i * 52
-        d.rectangle([wx, by + 48, wx + 34, by + 76], fill=(88, 104, 122))
-        wx2 = bx + bw - 52 - i * 52
-        d.rectangle([wx2, by + 48, wx2 + 34, by + 76], fill=(88, 104, 122))
+        for wx in (bx + 18 + i * 52, bx + bw - 52 - i * 52):
+            d.rectangle([wx, by + 48, wx + 34, by + 76], fill=(100, 124, 148))
+            d.rectangle([wx, by + 48, wx + 34, by + 76],
+                        outline=(52, 46, 40), width=2)
+            d.line([wx, by + 66, wx + 34, by + 66], fill=(52, 46, 40),
+                   width=2)
+            d.rectangle([wx + 5, by + 56, wx + 11, by + 66],
+                        fill=(196, 120, 44))
+            d.rectangle([wx + 15, by + 58, wx + 20, by + 66],
+                        fill=(70, 110, 150))
+            d.rectangle([wx + 23, by + 69, wx + 29, by + 75],
+                        fill=(150, 44, 36))
+            d.line([wx + 4, by + 52, wx + 16, by + 62],
+                   fill=(170, 192, 208), width=2)
+    # a shopping cart parked by the door: basket, handle and two wheels
+    kx, ky = bx + bw - 66, by + bh - 26
+    d.line([kx - 6, ky - 8, kx + 2, ky - 8], fill=(52, 46, 40), width=3)
+    d.polygon([(kx, ky - 6), (kx + 36, ky - 6), (kx + 30, ky + 10),
+               (kx + 5, ky + 10)], outline=(52, 46, 40), width=3)
+    d.line([kx + 4, ky + 2, kx + 33, ky + 2], fill=(52, 46, 40), width=2)
+    d.line([kx + 5, ky + 10, kx + 3, ky + 15], fill=(52, 46, 40), width=3)
+    d.line([kx + 30, ky + 10, kx + 28, ky + 15], fill=(52, 46, 40), width=3)
+    for wx in (kx + 6, kx + 27):
+        d.ellipse([wx - 3, ky + 14, wx + 3, ky + 20], fill=(52, 46, 40))
     # police cordon: two posts and a sagging striped tape
     gy = y + h - 12
     for px in (x + 8, x + w - 14):
@@ -391,6 +470,8 @@ def motif_hodeidah(d, x, y, w, h):
         d.line([cxx, y + h - 30, cxx, y + 22], fill=NAVY, width=6)
         d.line([cxx, y + 22, cxx + 56, y + 40], fill=NAVY, width=6)
         d.line([cxx, y + 22, cxx - 26, y + h - 30], fill=NAVY, width=4)
+        d.rectangle([cxx - 5, y + 22, cxx + 9, y + 32],
+                    fill=(90, 96, 104))  # operator cab
         d.line([cxx + 44, y + 36, cxx + 44, y + 62], fill=NAVY, width=3)
         d.rectangle([cxx + 36, y + 62, cxx + 52, y + 74], fill=(90, 96, 104))
     hx = x + 6  # ship at the quay, drawn large and clear of the coast
@@ -398,15 +479,31 @@ def motif_hodeidah(d, x, y, w, h):
     d.polygon([(hx, wl), (hx + 148, wl), (hx + 130, y + h - 8),
                (hx + 16, y + h - 8)], fill=(22, 34, 52))
     d.rectangle([hx + 8, wl - 8, hx + 140, wl], fill=(150, 44, 36))
+    for px in range(4):  # portholes along the hull
+        d.ellipse([hx + 30 + px * 22, wl + 6, hx + 38 + px * 22, wl + 14],
+                  fill=(200, 212, 222))
     for i, col in enumerate(((196, 120, 44), (70, 110, 150),
                              (196, 120, 44))):  # container stacks
         cxx = hx + 16 + i * 34
         d.rectangle([cxx, wl - 26, cxx + 30, wl - 8], fill=col)
+    d.rectangle([hx + 50, wl - 40, hx + 80, wl - 26],
+                fill=(70, 110, 150))  # one box stacked on deck
     d.rectangle([hx + 116, wl - 40, hx + 140, wl - 8],
                 fill=(224, 220, 206))  # bridge tower
     d.rectangle([hx + 122, wl - 34, hx + 134, wl - 28], fill=(40, 60, 84))
     d.line([hx + 60, wl - 26, hx + 60, wl - 44], fill=(22, 34, 52),
            width=4)  # mast
+    waves(d, x + 10, wl + 13, w - 20, (110, 150, 175))
+    waves(d, x + 26, wl + 22, w - 52, (84, 124, 152))
+
+
+def star(d, cx, cy, r, col):
+    pts = []
+    for i in range(10):
+        ang = -math.pi / 2 + i * math.pi / 5
+        rr = r if i % 2 == 0 else r * 0.45
+        pts.append((cx + rr * math.cos(ang), cy + rr * math.sin(ang)))
+    d.polygon(pts, fill=col)
 
 
 def motif_putin(d, x, y, w, h):
@@ -424,6 +521,15 @@ def motif_putin(d, x, y, w, h):
                base - 90)], fill=(238, 132, 48))
     d.line([x + 50, base - 30, x + 120, base - 30], fill=(96, 100, 106),
            width=5)
+    d.line([x + 50, base - 48, x + 104, base - 48], fill=(96, 100, 106),
+           width=4)
+    # a spherical storage tank between the columns and the wall
+    d.ellipse([x + 92, base - 42, x + 126, base - 8], fill=(150, 152, 156))
+    d.ellipse([x + 100, base - 38, x + 112, base - 28], fill=(172, 174, 178))
+    d.line([x + 100, base - 10, x + 100, base], fill=(96, 100, 106),
+           width=4)
+    d.line([x + 118, base - 10, x + 118, base], fill=(96, 100, 106),
+           width=4)
     # Kremlin wall and tower with spire
     wx = x + 128
     d.rectangle([wx, base - 52, x + w - 8, base], fill=(128, 52, 44))
@@ -431,11 +537,21 @@ def motif_putin(d, x, y, w, h):
         mx_ = wx + 6 + i * 18
         d.rectangle([mx_, base - 62, mx_ + 10, base - 52],
                     fill=(128, 52, 44))
+    d.line([wx + 4, base - 40, x + w - 12, base - 40], fill=(110, 44, 38),
+           width=3)
     tx = x + w - 66
     d.rectangle([tx, base - 92, tx + 42, base], fill=(140, 58, 48))
+    d.line([tx, base - 64, tx + 42, base - 64], fill=(224, 220, 206),
+           width=3)
+    d.ellipse([tx + 12, base - 56, tx + 30, base - 38],
+              fill=(224, 220, 206))  # clock face
+    d.line([tx + 21, base - 47, tx + 21, base - 53], fill=(52, 46, 40),
+           width=2)
+    d.line([tx + 21, base - 47, tx + 26, base - 44], fill=(52, 46, 40),
+           width=2)
     d.polygon([(tx - 5, base - 92), (tx + 47, base - 92), (tx + 21,
                base - 128)], fill=(34, 84, 60))
-    d.ellipse([tx + 16, base - 138, tx + 26, base - 128], fill=GOLD_L)
+    star(d, tx + 21, base - 133, 7, GOLD_L)
 
 
 MOTIFS = (motif_hormuz, motif_cartagena, motif_hodeidah, motif_putin)
@@ -461,6 +577,8 @@ PANELS = (
 
 
 def panel(d, x, y, w, h, kicker, headline, body, motif):
+    d.rectangle([x + 6, y + 6, x + w + 6, y + h + 6],
+                fill=(209, 199, 171))  # soft offset shadow on the paper
     d.rectangle([x, y, x + w, y + h], fill=CREAM)
     d.rectangle([x, y, x + w, y + h], outline=NAVY, width=3)
     px = x + 26
